@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Rounded Corner Image Maker + Crop</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #111;
+      color: #f5f5f5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+
+    .wrapper {
+      background: #1c1c1e;
+      border-radius: 20px;
+      padding: 20px 24px 24px;
+      max-width: 1000px;
+      width: 100%;
+      box-shadow: 0 18px 40px rgba(0,0,0,0.4);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 1.4rem;
+      text-align: center;
+    }
+
+    p {
+      margin: 0 0 16px;
+      font-size: 0.9rem;
+      color: #b0b0b0;
+      text-align: center;
+    }
+
+    h2 {
+      font-size: 1rem;
+      margin: 16px 0 8px;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 12px;
+      margin-bottom: 12px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .file-input-label {
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid #3a3a3c;
+      cursor: pointer;
+      font-size: 0.9rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #2c2c2e;
+    }
+
+    .file-input-label:hover {
+      background: #343438;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .slider-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 220px;
+    }
+
+    .slider-group label {
+      font-size: 0.85rem;
+      white-space: nowrap;
+    }
+
+    input[type="range"] {
+      flex: 1;
+    }
+
+    .value-label {
+      font-size: 0.85rem;
+      min-width: 60px;
+      text-align: right;
+      color: #d0d0d0;
+    }
+
+    /* Canvas area */
+    .canvas-wrapper {
+      border-radius: 16px;
+      border: 1px solid #3a3a3c;
+      background: black;
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 260px;
+      margin-top: 12px;
+      margin-bottom: 16px;
+      transition: background 0.2s ease;
+    }
+
+    canvas {
+      max-width: 100%;
+      height: auto;
+      border-radius: 12px;
+      background: transparent;
+    }
+
+    /* Buttons */
+    .buttons {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 8px 16px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .primary {
+      background: #0a84ff;
+      color: white;
+    }
+
+    .secondary {
+      background: transparent;
+      border: 1px solid #3a3a3c;
+      color: #f5f5f5;
+    }
+
+    .crop-section {
+      margin-top: 8px;
+      border-top: 1px solid #3a3a3c;
+      padding-top: 10px;
+    }
+
+    .crop-mode {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+    }
+
+    .aspect-select {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid #3a3a3c;
+      background: #2c2c2e;
+      color: #f5f5f5;
+      font-size: 0.9rem;
+    }
+
+    .crop-sliders {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+  </style>
+</head>
+
+<body>
+  <div class="wrapper">
+
+    <h1>Rounded Corner Image Maker</h1>
+    <p>Crop, round corners, preview on black/white, and download.</p>
+
+    <!-- Controls -->
+    <div class="controls">
+      <label class="file-input-label">
+        📁 Choose Image
+        <input type="file" id="imageInput" accept="image/*" />
+      </label>
+
+      <div class="slider-group">
+        <label for="radiusSlider">Corner radius</label>
+        <input type="range" id="radiusSlider" min="0" max="500" value="0" />
+        <span class="value-label" id="radiusValue">0 px</span>
+      </div>
+
+      <!-- NEW background toggle -->
+      <button class="secondary" id="bgToggle">White BG</button>
+    </div>
+
+    <!-- Crop -->
+    <div class="crop-section">
+      <h2>Crop</h2>
+
+      <div class="crop-mode">
+        <label><input type="radio" name="cropMode" value="preset" checked> Preset ratio</label>
+        <label><input type="radio" name="cropMode" value="custom"> Custom</label>
+
+        <select id="aspectSelect" class="aspect-select">
+          <option value="original">Original</option>
+          <option value="1:1">1 : 1</option>
+          <option value="4:3">4 : 3</option>
+          <option value="3:4">3 : 4</option>
+          <option value="16:9">16 : 9</option>
+          <option value="9:16">9 : 16</option>
+        </select>
+      </div>
+
+      <div id="customCropControls" class="crop-sliders" style="opacity:0.4; pointer-events:none;">
+        <div class="slider-group">
+          <label for="cropTop">Top</label>
+          <input type="range" id="cropTop" min="0" max="40" value="0">
+          <span class="value-label" id="cropTopValue">0%</span>
+        </div>
+        <div class="slider-group">
+          <label for="cropRight">Right</label>
+          <input type="range" id="cropRight" min="0" max="40" value="0">
+          <span class="value-label" id="cropRightValue">0%</span>
+        </div>
+        <div class="slider-group">
+          <label for="cropBottom">Bottom</label>
+          <input type="range" id="cropBottom" min="0" max="40" value="0">
+          <span class="value-label" id="cropBottomValue">0%</span>
+        </div>
+        <div class="slider-group">
+          <label for="cropLeft">Left</label>
+          <input type="range" id="cropLeft" min="0" max="40" value="0">
+          <span class="value-label" id="cropLeftValue">0%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Canvas -->
+    <div class="canvas-wrapper" id="canvasWrapper">
+      <canvas id="canvas"></canvas>
+    </div>
+
+    <!-- Download -->
+    <div class="buttons">
+      <button class="primary" id="downloadBtn" disabled>⬇️ Download PNG</button>
+    </div>
+
+  </div>
+
+  <script>
+    const imageInput = document.getElementById("imageInput");
+    const radiusSlider = document.getElementById("radiusSlider");
+    const radiusValue = document.getElementById("radiusValue");
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const downloadBtn = document.getElementById("downloadBtn");
+    const bgToggle = document.getElementById("bgToggle");
+    const canvasWrapper = document.getElementById("canvasWrapper");
+
+    const cropModeRadios = document.querySelectorAll('input[name="cropMode"]');
+    const aspectSelect = document.getElementById("aspectSelect");
+
+    const cropTop = document.getElementById("cropTop");
+    const cropRight = document.getElementById("cropRight");
+    const cropBottom = document.getElementById("cropBottom");
+    const cropLeft = document.getElementById("cropLeft");
+
+    const cropTopValue = document.getElementById("cropTopValue");
+    const cropRightValue = document.getElementById("cropRightValue");
+    const cropBottomValue = document.getElementById("cropBottomValue");
+    const cropLeftValue = document.getElementById("cropLeftValue");
+
+    const customCropControls = document.getElementById("customCropControls");
+
+    let loadedImage = null;
+    let cropRect = { x:0, y:0, width:0, height:0 };
+    let bgIsBlack = true; // NEW toggle state
+
+    function updateRadiusLabel() {
+      radiusValue.textContent = radiusSlider.value + " px";
+    }
+
+    function updateCustomLabels() {
+      cropTopValue.textContent = cropTop.value + "%";
+      cropRightValue.textContent = cropRight.value + "%";
+      cropBottomValue.textContent = cropBottom.value + "%";
+      cropLeftValue.textContent = cropLeft.value + "%";
+    }
+
+    function getCropMode() {
+      return [...cropModeRadios].find(r=>r.checked).value;
+    }
+
+    function setCropModeUI() {
+      if (getCropMode()==="custom") {
+        customCropControls.style.opacity = "1";
+        customCropControls.style.pointerEvents = "auto";
+      } else {
+        customCropControls.style.opacity = "0.4";
+        customCropControls.style.pointerEvents = "none";
+      }
+    }
+
+    function setDefaultCrop() {
+      cropRect.x = 0;
+      cropRect.y = 0;
+      cropRect.width = loadedImage.width;
+      cropRect.height = loadedImage.height;
+    }
+
+    function applyAspectRatio(ratio) {
+      if (!loadedImage) return;
+
+      if (ratio==="original") {
+        setDefaultCrop();
+        updateCanvasSizeAndDraw();
+        return;
+      }
+
+      const [rw, rh] = ratio.split(":").map(Number);
+      const imgW = loadedImage.width;
+      const imgH = loadedImage.height;
+
+      const target = rw / rh;
+      const imgAspect = imgW / imgH;
+
+      let w,h;
+      if (imgAspect > target) {
+        h = imgH;
+        w = h * target;
+      } else {
+        w = imgW;
+        h = w / target;
+      }
+
+      cropRect.width = w;
+      cropRect.height = h;
+      cropRect.x = (imgW - w) / 2;
+      cropRect.y = (imgH - h) / 2;
+
+      updateCanvasSizeAndDraw();
+    }
+
+    function applyCustomCrop() {
+      const W = loadedImage.width;
+      const H = loadedImage.height;
+
+      let x1 = W * (cropLeft.value/100);
+      let y1 = H * (cropTop.value/100);
+      let x2 = W * (1 - cropRight.value/100);
+      let y2 = H * (1 - cropBottom.value/100);
+
+      if (x2 <= x1) x2 = x1 + 5;
+      if (y2 <= y1) y2 = y1 + 5;
+
+      cropRect.x = x1;
+      cropRect.y = y1;
+      cropRect.width = x2 - x1;
+      cropRect.height = y2 - y1;
+
+      updateCanvasSizeAndDraw();
+    }
+
+    function updateCanvasSizeAndDraw() {
+      const max = 1000;
+      const scale = Math.min(1, max/cropRect.width, max/cropRect.height);
+
+      canvas.width = cropRect.width * scale;
+      canvas.height = cropRect.height * scale;
+
+      drawRoundedImage();
+    }
+
+    function drawRoundedImage() {
+      const r = Math.min(
+        parseInt(radiusSlider.value),
+        Math.min(canvas.width, canvas.height)/2
+      );
+
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.save();
+
+      ctx.beginPath();
+      ctx.moveTo(r,0);
+      ctx.lineTo(canvas.width-r,0);
+      ctx.quadraticCurveTo(canvas.width,0,canvas.width,r);
+      ctx.lineTo(canvas.width,canvas.height-r);
+      ctx.quadraticCurveTo(canvas.width,canvas.height,canvas.width-r,canvas.height);
+      ctx.lineTo(r,canvas.height);
+      ctx.quadraticCurveTo(0,canvas.height,0,canvas.height-r);
+      ctx.lineTo(0,r);
+      ctx.quadraticCurveTo(0,0,r,0);
+      ctx.clip();
+
+      ctx.drawImage(
+        loadedImage,
+        cropRect.x, cropRect.y, cropRect.width, cropRect.height,
+        0,0,canvas.width,canvas.height
+      );
+
+      ctx.restore();
+    }
+
+    /* NEW — Background toggle */
+    bgToggle.addEventListener("click", () => {
+      bgIsBlack = !bgIsBlack;
+      canvasWrapper.style.background = bgIsBlack ? "black" : "white";
+      bgToggle.textContent = bgIsBlack ? "White BG" : "Black BG";
+    });
+
+    /* Events */
+    imageInput.addEventListener("change", e => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const img = new Image();
+        img.onload = () => {
+          loadedImage = img;
+          setDefaultCrop();
+          updateCanvasSizeAndDraw();
+          downloadBtn.disabled = false;
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    radiusSlider.addEventListener("input", () => {
+      updateRadiusLabel();
+      drawRoundedImage();
+    });
+
+    aspectSelect.addEventListener("change", () => {
+      if (getCropMode()==="preset") applyAspectRatio(aspectSelect.value);
+    });
+
+    cropModeRadios.forEach(r =>
+      r.addEventListener("change", () => {
+        setCropModeUI();
+        if (getCropMode()==="preset") {
+          applyAspectRatio(aspectSelect.value);
+        } else {
+          applyCustomCrop();
+        }
+      })
+    );
+
+    [cropTop, cropRight, cropBottom, cropLeft].forEach(s => {
+      s.addEventListener("input", () => {
+        updateCustomLabels();
+        if (getCropMode()==="custom") applyCustomCrop();
+      });
+    });
+
+    downloadBtn.addEventListener("click", () => {
+      const link = document.createElement("a");
+      link.download = "rounded-image.png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
+
+    updateRadiusLabel();
+    updateCustomLabels();
+
+  </script>
+</body>
+</html>
