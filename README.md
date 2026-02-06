@@ -8,3 +8,6 @@ A simple, offline tool to round image corners and crop images right in the brows
 - Crop images before exporting
 - Download the processed image
 - Single-file static site
+
+![App Screenshot](Screenshot%202026-02-05%20192604.png)
+
