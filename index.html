@@ -3,486 +3,1456 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#111111" />
+  <meta name="theme-color" content="#f6f7f9" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32x32.png" />
   <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16x16.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
-  <title>Rounded Corner Image Maker + Crop</title>
+  <title>Image Rounder</title>
   <style>
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #111;
-      color: #f5f5f5;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --panel-soft: #f1f3f6;
+      --line: #d9dee7;
+      --line-strong: #c5ccd8;
+      --text: #17181c;
+      --muted: #687083;
+      --accent: #007aff;
+      --accent-strong: #0062cc;
+      --success: #22a06b;
+      --shadow: 0 24px 60px rgba(25, 31, 44, 0.12);
+      --radius: 8px;
     }
 
-    .wrapper {
-      background: #1c1c1e;
-      border-radius: 20px;
-      padding: 20px 24px 24px;
-      max-width: 1000px;
-      width: 100%;
-      box-shadow: 0 18px 40px rgba(0,0,0,0.4);
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      min-height: 100%;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      background:
+        linear-gradient(180deg, #fbfcfe 0%, var(--bg) 42%, #eef1f5 100%);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+      letter-spacing: 0;
+    }
+
+    button,
+    label[for="imageInput"],
+    select {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .app-shell {
+      width: min(1440px, 100%);
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: 24px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 16px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.82);
+      border: 1px solid rgba(217, 222, 231, 0.88);
+      border-radius: var(--radius);
+      box-shadow: 0 12px 32px rgba(25, 31, 44, 0.08);
+      backdrop-filter: blur(22px);
+    }
+
+    .brand {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      flex: 0 0 auto;
+      border-radius: var(--radius);
+      background:
+        radial-gradient(circle at 68% 28%, rgba(255, 255, 255, 0.92) 0 10%, transparent 11%),
+        linear-gradient(135deg, #17181c 0%, #3c4352 42%, #007aff 100%);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+      position: relative;
+    }
+
+    .brand-mark::after {
+      content: "";
+      position: absolute;
+      inset: 9px;
+      border: 2px solid rgba(255, 255, 255, 0.86);
+      border-radius: 7px;
     }
 
     h1 {
-      margin: 0 0 10px;
-      font-size: 1.4rem;
-      text-align: center;
+      margin: 0;
+      font-size: 1.22rem;
+      line-height: 1.1;
+      font-weight: 700;
     }
 
-    p {
-      margin: 0 0 16px;
-      font-size: 0.9rem;
-      color: #b0b0b0;
-      text-align: center;
+    .file-name {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.25;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 48vw;
     }
 
-    h2 {
-      font-size: 1rem;
-      margin: 16px 0 8px;
-    }
-
-    .controls {
+    .actions {
       display: flex;
-      flex-wrap: nowrap;
-      gap: 12px;
-      margin-bottom: 12px;
       align-items: center;
-      justify-content: center;
-    }
-
-    .file-input-label {
-      padding: 8px 14px;
-      border-radius: 999px;
-      border: 1px solid #3a3a3c;
-      cursor: pointer;
-      font-size: 0.9rem;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: #2c2c2e;
-    }
-
-    .file-input-label:hover {
-      background: #343438;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
     input[type="file"] {
       display: none;
     }
 
-    .slider-group {
-      display: flex;
+    .button,
+    button {
+      min-height: 38px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      padding: 0 14px;
+      display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 8px;
-      min-width: 220px;
+      color: var(--text);
+      background: var(--panel-soft);
+      cursor: pointer;
+      user-select: none;
+      transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
     }
 
-    .slider-group label {
-      font-size: 0.85rem;
-      white-space: nowrap;
+    .button:hover,
+    button:hover {
+      background: #e8ecf2;
     }
 
-    input[type="range"] {
-      flex: 1;
+    .button:active,
+    button:active {
+      transform: translateY(1px);
     }
 
-    .value-label {
-      font-size: 0.85rem;
-      min-width: 60px;
-      text-align: right;
-      color: #d0d0d0;
+    .button.primary,
+    button.primary {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: var(--accent);
     }
 
-    /* Canvas area */
-    .canvas-wrapper {
-      border-radius: 16px;
-      border: 1px solid #3a3a3c;
-      background: black;
-      padding: 8px;
+    .button.primary:hover,
+    button.primary:hover {
+      background: var(--accent-strong);
+    }
+
+    button:disabled {
+      color: #9aa3b3;
+      background: #eef1f5;
+      border-color: transparent;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .workspace {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 318px;
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .editor-panel,
+    .inspector {
+      min-width: 0;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(217, 222, 231, 0.92);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(22px);
+    }
+
+    .editor-panel {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto minmax(360px, 1fr);
+      overflow: hidden;
+    }
+
+    .control-strip {
+      padding: 12px;
       display: flex;
       align-items: center;
-      justify-content: center;
-      min-height: 260px;
-      margin-top: 12px;
-      margin-bottom: 16px;
-      transition: background 0.2s ease;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--line);
+      background: rgba(249, 250, 252, 0.72);
     }
 
-    canvas {
-      max-width: 100%;
-      height: auto;
-      border-radius: 12px;
-      background: transparent;
-    }
-
-    /* Buttons */
-    .buttons {
+    .control-row {
       display: flex;
-      justify-content: center;
+      align-items: center;
       gap: 10px;
       flex-wrap: wrap;
     }
 
-    button {
-      border: none;
-      border-radius: 999px;
-      padding: 8px 16px;
-      font-size: 0.9rem;
-      cursor: pointer;
+    .field {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-    }
-
-    .primary {
-      background: #0a84ff;
-      color: white;
-    }
-
-    .secondary {
-      background: transparent;
-      border: 1px solid #3a3a3c;
-      color: #f5f5f5;
-    }
-
-    .crop-section {
-      margin-top: 8px;
-      border-top: 1px solid #3a3a3c;
-      padding-top: 10px;
-    }
-
-    .crop-mode {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      align-items: center;
-      font-size: 0.9rem;
-      margin-bottom: 8px;
-    }
-
-    .aspect-select {
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid #3a3a3c;
-      background: #2c2c2e;
-      color: #f5f5f5;
-      font-size: 0.9rem;
-    }
-
-    .crop-sliders {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 8px;
-      margin-top: 6px;
+      color: var(--muted);
+      font-size: 0.9rem;
     }
 
+    select {
+      min-height: 36px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 0 34px 0 10px;
+      color: var(--text);
+      background:
+        linear-gradient(45deg, transparent 50%, #697386 50%) right 12px center / 6px 6px no-repeat,
+        linear-gradient(135deg, #697386 50%, transparent 50%) right 8px center / 6px 6px no-repeat,
+        #ffffff;
+      appearance: none;
+    }
+
+    .segmented {
+      display: inline-grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      min-height: 36px;
+      padding: 3px;
+      gap: 3px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #edf1f6;
+    }
+
+    .segmented button {
+      min-height: 28px;
+      border: 0;
+      padding: 0 10px;
+      color: var(--muted);
+      background: transparent;
+    }
+
+    .segmented button.is-active {
+      color: var(--text);
+      background: #ffffff;
+      box-shadow: 0 1px 5px rgba(25, 31, 44, 0.1);
+    }
+
+    .readouts {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .pill {
+      min-height: 30px;
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 0 10px;
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .canvas-shell {
+      position: relative;
+      min-height: clamp(420px, 68vh, 780px);
+      margin: 0;
+      padding: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: #17181c;
+      transition: background 160ms ease;
+    }
+
+    .canvas-shell[data-bg="light"] {
+      background: #f7f8fb;
+    }
+
+    .canvas-shell[data-bg="grid"],
+    .preview-frame[data-bg="grid"] {
+      background:
+        linear-gradient(45deg, #d8dde6 25%, transparent 25%),
+        linear-gradient(-45deg, #d8dde6 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #d8dde6 75%),
+        linear-gradient(-45deg, transparent 75%, #d8dde6 75%),
+        #ffffff;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+      background-size: 20px 20px;
+    }
+
+    .canvas-shell.is-over {
+      outline: 2px solid var(--accent);
+      outline-offset: -8px;
+    }
+
+    #editorCanvas {
+      display: none;
+      max-width: 100%;
+      max-height: 100%;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .has-image #editorCanvas {
+      display: block;
+    }
+
+    .empty-state {
+      position: absolute;
+      inset: 22px;
+      display: grid;
+      place-items: center;
+      color: #ffffff;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .canvas-shell[data-bg="light"] .empty-state,
+    .canvas-shell[data-bg="grid"] .empty-state {
+      color: var(--text);
+    }
+
+    .has-image .empty-state {
+      display: none;
+    }
+
+    .empty-state-inner {
+      display: grid;
+      justify-items: center;
+      gap: 12px;
+    }
+
+    .empty-mark {
+      width: 74px;
+      height: 74px;
+      border-radius: var(--radius);
+      border: 1px solid currentColor;
+      opacity: 0.72;
+      position: relative;
+    }
+
+    .empty-mark::before,
+    .empty-mark::after {
+      content: "";
+      position: absolute;
+      border: 2px solid currentColor;
+      border-radius: 6px;
+      opacity: 0.8;
+    }
+
+    .empty-mark::before {
+      inset: 17px;
+    }
+
+    .empty-mark::after {
+      width: 18px;
+      height: 18px;
+      right: 16px;
+      top: 16px;
+      border-left: 0;
+      border-bottom: 0;
+    }
+
+    .empty-title {
+      margin: 0;
+      font-weight: 650;
+      font-size: 1rem;
+    }
+
+    .empty-subtitle {
+      margin: 0;
+      color: currentColor;
+      opacity: 0.68;
+      font-size: 0.92rem;
+    }
+
+    .inspector {
+      padding: 14px;
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      gap: 14px;
+      align-content: start;
+    }
+
+    .section-title {
+      margin: 0;
+      font-size: 0.94rem;
+      line-height: 1.2;
+      font-weight: 700;
+    }
+
+    .preview-frame {
+      min-height: 220px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #17181c;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .preview-frame[data-bg="light"] {
+      background: #f7f8fb;
+    }
+
+    #previewCanvas {
+      display: none;
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    .has-image #previewCanvas {
+      display: block;
+    }
+
+    .preview-empty {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.9rem;
+    }
+
+    .preview-frame[data-bg="light"] .preview-empty,
+    .preview-frame[data-bg="grid"] .preview-empty {
+      color: var(--muted);
+    }
+
+    .has-image .preview-empty {
+      display: none;
+    }
+
+    .stats {
+      margin: 0;
+      display: grid;
+      gap: 8px;
+      align-self: start;
+    }
+
+    .stat-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--line);
+      font-size: 0.92rem;
+    }
+
+    .stat-row dt {
+      color: var(--muted);
+    }
+
+    .stat-row dd {
+      margin: 0;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+
+    .direct-note {
+      margin: 0;
+      padding: 12px;
+      border: 1px solid #d4efe3;
+      border-radius: var(--radius);
+      color: #145c43;
+      background: #effaf5;
+      font-size: 0.9rem;
+      line-height: 1.38;
+    }
+
+    @media (max-width: 1050px) {
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .inspector {
+        grid-template-columns: minmax(240px, 0.8fr) 1fr;
+        grid-template-rows: auto auto;
+        align-items: start;
+      }
+
+      .inspector .section-title {
+        grid-column: 1 / -1;
+      }
+
+      .direct-note {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .app-shell {
+        padding: 12px;
+      }
+
+      .topbar {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .file-name {
+        max-width: 100%;
+      }
+
+      .actions {
+        justify-content: stretch;
+      }
+
+      .actions .button,
+      .actions button {
+        flex: 1 1 auto;
+      }
+
+      .control-strip {
+        align-items: stretch;
+      }
+
+      .control-row,
+      .readouts {
+        width: 100%;
+      }
+
+      .field,
+      .field select,
+      .segmented {
+        width: 100%;
+      }
+
+      .segmented button {
+        padding: 0 6px;
+      }
+
+      .canvas-shell {
+        min-height: 430px;
+        padding: 14px;
+      }
+
+      .inspector {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
-
 <body>
-  <div class="wrapper">
+  <div class="app-shell" id="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1>Image Rounder</h1>
+          <p class="file-name" id="fileName">No image loaded</p>
+        </div>
+      </div>
 
-    <h1>Rounded Corner Image Maker</h1>
-    <p>Crop, round corners, preview on black/white, and download.</p>
-
-    <!-- Controls -->
-    <div class="controls">
-      <label class="file-input-label">
-        📁 Choose Image
+      <div class="actions">
+        <label class="button" for="imageInput">Open</label>
         <input type="file" id="imageInput" accept="image/*" />
-      </label>
-
-      <div class="slider-group">
-        <label for="radiusSlider">Corner radius</label>
-        <input type="range" id="radiusSlider" min="0" max="500" value="0" />
-        <span class="value-label" id="radiusValue">0 px</span>
+        <button id="resetBtn" type="button" disabled>Reset</button>
+        <button class="primary" id="downloadBtn" type="button" disabled>Export PNG</button>
       </div>
+    </header>
 
-      <!-- NEW background toggle -->
-      <button class="secondary" id="bgToggle">White BG</button>
-    </div>
+    <main class="workspace">
+      <section class="editor-panel" aria-label="Image editor">
+        <div class="control-strip">
+          <div class="control-row">
+            <label class="field" for="aspectSelect">
+              <span>Ratio</span>
+              <select id="aspectSelect">
+                <option value="free">Free</option>
+                <option value="original">Original</option>
+                <option value="1:1">1 : 1</option>
+                <option value="4:3">4 : 3</option>
+                <option value="3:4">3 : 4</option>
+                <option value="16:9">16 : 9</option>
+                <option value="9:16">9 : 16</option>
+              </select>
+            </label>
 
-    <!-- Crop -->
-    <div class="crop-section">
-      <h2>Crop</h2>
+            <div class="segmented" aria-label="Preview background">
+              <button type="button" class="is-active" data-bg-option="dark" aria-pressed="true">Dark</button>
+              <button type="button" data-bg-option="light" aria-pressed="false">Light</button>
+              <button type="button" data-bg-option="grid" aria-pressed="false">Grid</button>
+            </div>
+          </div>
 
-      <div class="crop-mode">
-        <label><input type="radio" name="cropMode" value="preset" checked> Preset ratio</label>
-        <label><input type="radio" name="cropMode" value="custom"> Custom</label>
-
-        <select id="aspectSelect" class="aspect-select">
-          <option value="original">Original</option>
-          <option value="1:1">1 : 1</option>
-          <option value="4:3">4 : 3</option>
-          <option value="3:4">3 : 4</option>
-          <option value="16:9">16 : 9</option>
-          <option value="9:16">9 : 16</option>
-        </select>
-      </div>
-
-      <div id="customCropControls" class="crop-sliders" style="opacity:0.4; pointer-events:none;">
-        <div class="slider-group">
-          <label for="cropTop">Top</label>
-          <input type="range" id="cropTop" min="0" max="40" value="0">
-          <span class="value-label" id="cropTopValue">0%</span>
+          <div class="readouts" aria-live="polite">
+            <span class="pill" id="cropReadout">Crop --</span>
+            <span class="pill" id="radiusReadout">Radius --</span>
+          </div>
         </div>
-        <div class="slider-group">
-          <label for="cropRight">Right</label>
-          <input type="range" id="cropRight" min="0" max="40" value="0">
-          <span class="value-label" id="cropRightValue">0%</span>
-        </div>
-        <div class="slider-group">
-          <label for="cropBottom">Bottom</label>
-          <input type="range" id="cropBottom" min="0" max="40" value="0">
-          <span class="value-label" id="cropBottomValue">0%</span>
-        </div>
-        <div class="slider-group">
-          <label for="cropLeft">Left</label>
-          <input type="range" id="cropLeft" min="0" max="40" value="0">
-          <span class="value-label" id="cropLeftValue">0%</span>
-        </div>
-      </div>
-    </div>
 
-    <!-- Canvas -->
-    <div class="canvas-wrapper" id="canvasWrapper">
-      <canvas id="canvas"></canvas>
-    </div>
+        <div class="canvas-shell" id="canvasShell" data-bg="dark">
+          <canvas id="editorCanvas"></canvas>
+          <div class="empty-state" id="emptyState">
+            <div class="empty-state-inner">
+              <div class="empty-mark" aria-hidden="true"></div>
+              <p class="empty-title">Open an image</p>
+              <p class="empty-subtitle">Drop one here or use Open</p>
+            </div>
+          </div>
+        </div>
+      </section>
 
-    <!-- Download -->
-    <div class="buttons">
-      <button class="primary" id="downloadBtn" disabled>⬇️ Download PNG</button>
-    </div>
+      <aside class="inspector" aria-label="Export preview">
+        <h2 class="section-title">Output</h2>
+        <div class="preview-frame" id="previewFrame" data-bg="dark">
+          <canvas id="previewCanvas"></canvas>
+          <span class="preview-empty">No preview</span>
+        </div>
 
+        <dl class="stats">
+          <div class="stat-row">
+            <dt>Source</dt>
+            <dd id="sourceStat">--</dd>
+          </div>
+          <div class="stat-row">
+            <dt>Export</dt>
+            <dd id="exportStat">--</dd>
+          </div>
+          <div class="stat-row">
+            <dt>Radius</dt>
+            <dd id="radiusStat">--</dd>
+          </div>
+        </dl>
+
+        <p class="direct-note">Drag the crop boundary, move the selected area, or pull the blue corner dot to change the rounding.</p>
+      </aside>
+    </main>
   </div>
 
   <script>
+    const app = document.getElementById("app");
     const imageInput = document.getElementById("imageInput");
-    const radiusSlider = document.getElementById("radiusSlider");
-    const radiusValue = document.getElementById("radiusValue");
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
+    const resetBtn = document.getElementById("resetBtn");
     const downloadBtn = document.getElementById("downloadBtn");
-    const bgToggle = document.getElementById("bgToggle");
-    const canvasWrapper = document.getElementById("canvasWrapper");
-
-    const cropModeRadios = document.querySelectorAll('input[name="cropMode"]');
     const aspectSelect = document.getElementById("aspectSelect");
+    const canvasShell = document.getElementById("canvasShell");
+    const previewFrame = document.getElementById("previewFrame");
+    const editorCanvas = document.getElementById("editorCanvas");
+    const previewCanvas = document.getElementById("previewCanvas");
+    const fileName = document.getElementById("fileName");
+    const cropReadout = document.getElementById("cropReadout");
+    const radiusReadout = document.getElementById("radiusReadout");
+    const sourceStat = document.getElementById("sourceStat");
+    const exportStat = document.getElementById("exportStat");
+    const radiusStat = document.getElementById("radiusStat");
 
-    const cropTop = document.getElementById("cropTop");
-    const cropRight = document.getElementById("cropRight");
-    const cropBottom = document.getElementById("cropBottom");
-    const cropLeft = document.getElementById("cropLeft");
+    const editorCtx = editorCanvas.getContext("2d");
+    const previewCtx = previewCanvas.getContext("2d");
 
-    const cropTopValue = document.getElementById("cropTopValue");
-    const cropRightValue = document.getElementById("cropRightValue");
-    const cropBottomValue = document.getElementById("cropBottomValue");
-    const cropLeftValue = document.getElementById("cropLeftValue");
-
-    const customCropControls = document.getElementById("customCropControls");
-
-    let loadedImage = null;
-    let cropRect = { x:0, y:0, width:0, height:0 };
-    let bgIsBlack = true; // NEW toggle state
-
-    function updateRadiusLabel() {
-      radiusValue.textContent = radiusSlider.value + " px";
-    }
-
-    function updateCustomLabels() {
-      cropTopValue.textContent = cropTop.value + "%";
-      cropRightValue.textContent = cropRight.value + "%";
-      cropBottomValue.textContent = cropBottom.value + "%";
-      cropLeftValue.textContent = cropLeft.value + "%";
-    }
-
-    function getCropMode() {
-      return [...cropModeRadios].find(r=>r.checked).value;
-    }
-
-    function setCropModeUI() {
-      if (getCropMode()==="custom") {
-        customCropControls.style.opacity = "1";
-        customCropControls.style.pointerEvents = "auto";
-      } else {
-        customCropControls.style.opacity = "0.4";
-        customCropControls.style.pointerEvents = "none";
+    const state = {
+      image: null,
+      sourceUrl: "",
+      fileLabel: "",
+      crop: null,
+      radius: 0,
+      bg: "dark",
+      drag: null,
+      hover: null,
+      view: {
+        scale: 1,
+        dpr: 1,
+        cssWidth: 0,
+        cssHeight: 0
       }
+    };
+
+    const cursorForHandle = {
+      n: "ns-resize",
+      s: "ns-resize",
+      e: "ew-resize",
+      w: "ew-resize",
+      ne: "nesw-resize",
+      sw: "nesw-resize",
+      nw: "nwse-resize",
+      se: "nwse-resize",
+      move: "move",
+      radius: "grab"
+    };
+
+    function clamp(value, min, max) {
+      return Math.min(Math.max(value, min), max);
     }
 
-    function setDefaultCrop() {
-      cropRect.x = 0;
-      cropRect.y = 0;
-      cropRect.width = loadedImage.width;
-      cropRect.height = loadedImage.height;
+    function imageWidth() {
+      return state.image ? state.image.naturalWidth || state.image.width : 0;
     }
 
-    function applyAspectRatio(ratio) {
-      if (!loadedImage) return;
+    function imageHeight() {
+      return state.image ? state.image.naturalHeight || state.image.height : 0;
+    }
 
-      if (ratio==="original") {
-        setDefaultCrop();
-        updateCanvasSizeAndDraw();
+    function roundPixel(value) {
+      return Math.max(1, Math.round(value));
+    }
+
+    function minCropSize() {
+      const shortest = Math.min(imageWidth(), imageHeight());
+      return Math.max(1, Math.min(shortest, Math.max(8, Math.min(80, shortest * 0.05))));
+    }
+
+    function getAspectRatio() {
+      const value = aspectSelect.value;
+      if (!state.image || value === "free") return null;
+      if (value === "original") return imageWidth() / imageHeight();
+
+      const parts = value.split(":").map(Number);
+      return parts[0] / parts[1];
+    }
+
+    function roundedRectPath(ctx, x, y, width, height, radius) {
+      const r = Math.max(0, Math.min(radius, width / 2, height / 2));
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + width - r, y);
+      ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+      ctx.lineTo(x + width, y + height - r);
+      ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+      ctx.lineTo(x + r, y + height);
+      ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+    }
+
+    function resetCrop() {
+      if (!state.image) return;
+      state.crop = {
+        x: 0,
+        y: 0,
+        w: imageWidth(),
+        h: imageHeight()
+      };
+      state.radius = 0;
+      aspectSelect.value = "free";
+      renderAll();
+    }
+
+    function applyAspectToCrop() {
+      if (!state.image || !state.crop) return;
+
+      const ratio = getAspectRatio();
+      if (!ratio) {
+        renderAll();
         return;
       }
 
-      const [rw, rh] = ratio.split(":").map(Number);
-      const imgW = loadedImage.width;
-      const imgH = loadedImage.height;
+      const imgW = imageWidth();
+      const imgH = imageHeight();
+      const current = state.crop;
+      const centerX = current.x + current.w / 2;
+      const centerY = current.y + current.h / 2;
 
-      const target = rw / rh;
-      const imgAspect = imgW / imgH;
+      let w = current.w;
+      let h = w / ratio;
 
-      let w,h;
-      if (imgAspect > target) {
-        h = imgH;
-        w = h * target;
-      } else {
-        w = imgW;
-        h = w / target;
+      if (h > current.h) {
+        h = current.h;
+        w = h * ratio;
       }
 
-      cropRect.width = w;
-      cropRect.height = h;
-      cropRect.x = (imgW - w) / 2;
-      cropRect.y = (imgH - h) / 2;
+      if (w > imgW) {
+        w = imgW;
+        h = w / ratio;
+      }
 
-      updateCanvasSizeAndDraw();
+      if (h > imgH) {
+        h = imgH;
+        w = h * ratio;
+      }
+
+      state.crop = {
+        x: clamp(centerX - w / 2, 0, imgW - w),
+        y: clamp(centerY - h / 2, 0, imgH - h),
+        w,
+        h
+      };
+      state.radius = Math.min(state.radius, Math.min(w, h) / 2);
+      renderAll();
     }
 
-    function applyCustomCrop() {
-      const W = loadedImage.width;
-      const H = loadedImage.height;
+    function setImageFromFile(file) {
+      if (!file || !file.type.startsWith("image/")) return;
 
-      let x1 = W * (cropLeft.value/100);
-      let y1 = H * (cropTop.value/100);
-      let x2 = W * (1 - cropRight.value/100);
-      let y2 = H * (1 - cropBottom.value/100);
+      const url = URL.createObjectURL(file);
+      const img = new Image();
 
-      if (x2 <= x1) x2 = x1 + 5;
-      if (y2 <= y1) y2 = y1 + 5;
+      img.onload = () => {
+        if (state.sourceUrl) URL.revokeObjectURL(state.sourceUrl);
+        state.sourceUrl = url;
+        state.image = img;
+        state.fileLabel = file.name;
+        state.crop = {
+          x: 0,
+          y: 0,
+          w: imageWidth(),
+          h: imageHeight()
+        };
+        state.radius = Math.round(Math.min(imageWidth(), imageHeight()) * 0.08);
+        aspectSelect.value = "free";
+        resetBtn.disabled = false;
+        downloadBtn.disabled = false;
+        app.classList.add("has-image");
+        renderAll();
+      };
 
-      cropRect.x = x1;
-      cropRect.y = y1;
-      cropRect.width = x2 - x1;
-      cropRect.height = y2 - y1;
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+      };
 
-      updateCanvasSizeAndDraw();
+      img.src = url;
     }
 
-    function updateCanvasSizeAndDraw() {
-      const max = 1000;
-      const scale = Math.min(1, max/cropRect.width, max/cropRect.height);
-
-      canvas.width = cropRect.width * scale;
-      canvas.height = cropRect.height * scale;
-
-      drawRoundedImage();
-    }
-
-    function drawRoundedImage() {
-      const r = Math.min(
-        parseInt(radiusSlider.value),
-        Math.min(canvas.width, canvas.height)/2
-      );
-
-      ctx.clearRect(0,0,canvas.width,canvas.height);
+    function clearCanvas(ctx, canvas) {
       ctx.save();
-
-      ctx.beginPath();
-      ctx.moveTo(r,0);
-      ctx.lineTo(canvas.width-r,0);
-      ctx.quadraticCurveTo(canvas.width,0,canvas.width,r);
-      ctx.lineTo(canvas.width,canvas.height-r);
-      ctx.quadraticCurveTo(canvas.width,canvas.height,canvas.width-r,canvas.height);
-      ctx.lineTo(r,canvas.height);
-      ctx.quadraticCurveTo(0,canvas.height,0,canvas.height-r);
-      ctx.lineTo(0,r);
-      ctx.quadraticCurveTo(0,0,r,0);
-      ctx.clip();
-
-      ctx.drawImage(
-        loadedImage,
-        cropRect.x, cropRect.y, cropRect.width, cropRect.height,
-        0,0,canvas.width,canvas.height
-      );
-
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.restore();
     }
 
-    /* NEW — Background toggle */
-    bgToggle.addEventListener("click", () => {
-      bgIsBlack = !bgIsBlack;
-      canvasWrapper.style.background = bgIsBlack ? "black" : "white";
-      bgToggle.textContent = bgIsBlack ? "White BG" : "Black BG";
-    });
+    function resizeEditorCanvas() {
+      if (!state.image) return;
 
-    /* Events */
-    imageInput.addEventListener("change", e => {
-      const file = e.target.files[0];
-      if (!file) return;
+      const bounds = canvasShell.getBoundingClientRect();
+      const imgW = imageWidth();
+      const imgH = imageHeight();
+      const maxW = Math.max(220, bounds.width - 44);
+      const maxH = Math.max(220, bounds.height - 44);
+      const scale = Math.min(maxW / imgW, maxH / imgH, 2);
+      const cssWidth = Math.max(1, imgW * scale);
+      const cssHeight = Math.max(1, imgH * scale);
+      const dpr = window.devicePixelRatio || 1;
 
-      const reader = new FileReader();
-      reader.onload = ev => {
-        const img = new Image();
-        img.onload = () => {
-          loadedImage = img;
-          setDefaultCrop();
-          updateCanvasSizeAndDraw();
-          downloadBtn.disabled = false;
-        };
-        img.src = ev.target.result;
+      state.view = { scale, dpr, cssWidth, cssHeight };
+
+      editorCanvas.style.width = cssWidth + "px";
+      editorCanvas.style.height = cssHeight + "px";
+      editorCanvas.width = Math.round(cssWidth * dpr);
+      editorCanvas.height = Math.round(cssHeight * dpr);
+    }
+
+    function drawEditor() {
+      if (!state.image || !state.crop) return;
+
+      const { scale, dpr } = state.view;
+      const c = state.crop;
+      const line = 1 / scale;
+
+      clearCanvas(editorCtx, editorCanvas);
+      editorCtx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
+      editorCtx.imageSmoothingEnabled = true;
+      editorCtx.imageSmoothingQuality = "high";
+
+      editorCtx.save();
+      editorCtx.globalAlpha = 0.24;
+      editorCtx.drawImage(state.image, 0, 0, imageWidth(), imageHeight());
+      editorCtx.restore();
+
+      editorCtx.clearRect(c.x, c.y, c.w, c.h);
+
+      editorCtx.save();
+      roundedRectPath(editorCtx, c.x, c.y, c.w, c.h, state.radius);
+      editorCtx.clip();
+      editorCtx.drawImage(state.image, 0, 0, imageWidth(), imageHeight());
+      editorCtx.restore();
+
+      drawCropFrame(editorCtx, c, line);
+      drawRadiusControls(editorCtx, c, line);
+      drawCropHandles(editorCtx, c, line);
+    }
+
+    function strokePathTwice(ctx, drawPath, thinLine) {
+      ctx.save();
+      drawPath();
+      ctx.lineWidth = thinLine * 4;
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.38)";
+      ctx.stroke();
+      drawPath();
+      ctx.lineWidth = thinLine * 1.7;
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.96)";
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawCropFrame(ctx, crop, line) {
+      strokePathTwice(ctx, () => {
+        ctx.beginPath();
+        ctx.rect(crop.x, crop.y, crop.w, crop.h);
+      }, line);
+
+      ctx.save();
+      roundedRectPath(ctx, crop.x, crop.y, crop.w, crop.h, state.radius);
+      ctx.lineWidth = line * 2;
+      ctx.strokeStyle = "rgba(0, 122, 255, 0.95)";
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function cropHandlePoints(crop) {
+      const x = crop.x;
+      const y = crop.y;
+      const w = crop.w;
+      const h = crop.h;
+      return [
+        ["nw", x, y],
+        ["n", x + w / 2, y],
+        ["ne", x + w, y],
+        ["e", x + w, y + h / 2],
+        ["se", x + w, y + h],
+        ["s", x + w / 2, y + h],
+        ["sw", x, y + h],
+        ["w", x, y + h / 2]
+      ];
+    }
+
+    function drawCropHandles(ctx, crop) {
+      const size = 12 / state.view.scale;
+      const radius = 3 / state.view.scale;
+
+      ctx.save();
+      for (const [, x, y] of cropHandlePoints(crop)) {
+        roundedRectPath(ctx, x - size / 2, y - size / 2, size, size, radius);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+        ctx.lineWidth = 1.5 / state.view.scale;
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.46)";
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function radiusHandleInset() {
+      if (!state.crop) return 0;
+      const maxRadius = Math.min(state.crop.w, state.crop.h) / 2;
+      const visibleInset = 28 / state.view.scale;
+      const minVisibleInset = Math.min(visibleInset, maxRadius);
+      return clamp(state.radius || minVisibleInset, minVisibleInset, maxRadius);
+    }
+
+    function radiusHandlePoints(crop) {
+      const d = radiusHandleInset();
+      return [
+        ["tl", crop.x + d, crop.y + d],
+        ["tr", crop.x + crop.w - d, crop.y + d],
+        ["br", crop.x + crop.w - d, crop.y + crop.h - d],
+        ["bl", crop.x + d, crop.y + crop.h - d]
+      ];
+    }
+
+    function drawRadiusControls(ctx, crop) {
+      const dot = 8 / state.view.scale;
+      const active = state.hover && state.hover.type === "radius";
+
+      ctx.save();
+      ctx.lineWidth = 1.5 / state.view.scale;
+      ctx.strokeStyle = "rgba(0, 122, 255, 0.5)";
+      ctx.setLineDash([4 / state.view.scale, 5 / state.view.scale]);
+      for (const [corner, x, y] of radiusHandlePoints(crop)) {
+        const cornerPoint = getCornerPoint(crop, corner);
+        ctx.beginPath();
+        ctx.moveTo(cornerPoint.x, cornerPoint.y);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+
+      for (const [, x, y] of radiusHandlePoints(crop)) {
+        ctx.beginPath();
+        ctx.arc(x, y, active ? dot * 1.18 : dot, 0, Math.PI * 2);
+        ctx.fillStyle = "#007aff";
+        ctx.fill();
+        ctx.lineWidth = 2 / state.view.scale;
+        ctx.strokeStyle = "#ffffff";
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function getCornerPoint(crop, corner) {
+      if (corner === "tl") return { x: crop.x, y: crop.y };
+      if (corner === "tr") return { x: crop.x + crop.w, y: crop.y };
+      if (corner === "br") return { x: crop.x + crop.w, y: crop.y + crop.h };
+      return { x: crop.x, y: crop.y + crop.h };
+    }
+
+    function pointFromEvent(event) {
+      const rect = editorCanvas.getBoundingClientRect();
+      return {
+        x: (event.clientX - rect.left) / state.view.scale,
+        y: (event.clientY - rect.top) / state.view.scale
       };
-      reader.readAsDataURL(file);
-    });
+    }
 
-    radiusSlider.addEventListener("input", () => {
-      updateRadiusLabel();
-      drawRoundedImage();
-    });
+    function distanceInScreenPx(a, x, y) {
+      return Math.hypot(a.x - x, a.y - y) * state.view.scale;
+    }
 
-    aspectSelect.addEventListener("change", () => {
-      if (getCropMode()==="preset") applyAspectRatio(aspectSelect.value);
-    });
+    function hitTest(point) {
+      if (!state.crop) return null;
 
-    cropModeRadios.forEach(r =>
-      r.addEventListener("change", () => {
-        setCropModeUI();
-        if (getCropMode()==="preset") {
-          applyAspectRatio(aspectSelect.value);
-        } else {
-          applyCustomCrop();
+      const crop = state.crop;
+      const radiusHit = 15;
+      for (const [corner, x, y] of radiusHandlePoints(crop)) {
+        if (distanceInScreenPx(point, x, y) <= radiusHit) {
+          return { type: "radius", handle: corner };
         }
-      })
-    );
+      }
 
-    [cropTop, cropRight, cropBottom, cropLeft].forEach(s => {
-      s.addEventListener("input", () => {
-        updateCustomLabels();
-        if (getCropMode()==="custom") applyCustomCrop();
-      });
-    });
+      const tol = 12 / state.view.scale;
+      const nearLeft = Math.abs(point.x - crop.x) <= tol;
+      const nearRight = Math.abs(point.x - (crop.x + crop.w)) <= tol;
+      const nearTop = Math.abs(point.y - crop.y) <= tol;
+      const nearBottom = Math.abs(point.y - (crop.y + crop.h)) <= tol;
+      const inX = point.x >= crop.x - tol && point.x <= crop.x + crop.w + tol;
+      const inY = point.y >= crop.y - tol && point.y <= crop.y + crop.h + tol;
 
-    downloadBtn.addEventListener("click", () => {
+      if (nearLeft && nearTop) return { type: "crop", handle: "nw" };
+      if (nearRight && nearTop) return { type: "crop", handle: "ne" };
+      if (nearRight && nearBottom) return { type: "crop", handle: "se" };
+      if (nearLeft && nearBottom) return { type: "crop", handle: "sw" };
+      if (nearTop && inX) return { type: "crop", handle: "n" };
+      if (nearRight && inY) return { type: "crop", handle: "e" };
+      if (nearBottom && inX) return { type: "crop", handle: "s" };
+      if (nearLeft && inY) return { type: "crop", handle: "w" };
+
+      if (
+        point.x > crop.x &&
+        point.x < crop.x + crop.w &&
+        point.y > crop.y &&
+        point.y < crop.y + crop.h
+      ) {
+        return { type: "crop", handle: "move" };
+      }
+
+      return null;
+    }
+
+    function setHover(hit) {
+      state.hover = hit;
+      const active = state.drag || hit;
+      const handle = active ? active.handle : null;
+      editorCanvas.style.cursor = handle ? cursorForHandle[active.type === "radius" ? "radius" : handle] || "default" : "default";
+      if (state.drag && state.drag.type === "radius") editorCanvas.style.cursor = "grabbing";
+    }
+
+    function moveCropFromDrag(point) {
+      const start = state.drag.startCrop;
+      const dx = point.x - state.drag.start.x;
+      const dy = point.y - state.drag.start.y;
+      state.crop = {
+        ...start,
+        x: clamp(start.x + dx, 0, imageWidth() - start.w),
+        y: clamp(start.y + dy, 0, imageHeight() - start.h)
+      };
+    }
+
+    function resizeFreeCrop(point) {
+      const start = state.drag.startCrop;
+      const handle = state.drag.handle;
+      const min = minCropSize();
+      const right = start.x + start.w;
+      const bottom = start.y + start.h;
+
+      let x = start.x;
+      let y = start.y;
+      let w = start.w;
+      let h = start.h;
+
+      if (handle.includes("w")) {
+        x = clamp(point.x, 0, right - min);
+        w = right - x;
+      }
+
+      if (handle.includes("e")) {
+        w = clamp(point.x - start.x, min, imageWidth() - start.x);
+      }
+
+      if (handle.includes("n")) {
+        y = clamp(point.y, 0, bottom - min);
+        h = bottom - y;
+      }
+
+      if (handle.includes("s")) {
+        h = clamp(point.y - start.y, min, imageHeight() - start.y);
+      }
+
+      state.crop = { x, y, w, h };
+    }
+
+    function resizeAspectCrop(point, ratio) {
+      const handle = state.drag.handle;
+      const start = state.drag.startCrop;
+
+      if (handle === "move") {
+        moveCropFromDrag(point);
+        return;
+      }
+
+      if (handle.length === 2) {
+        resizeAspectCorner(point, ratio);
+        return;
+      }
+
+      if (handle === "e" || handle === "w") {
+        resizeAspectHorizontal(point, ratio);
+        return;
+      }
+
+      resizeAspectVertical(point, ratio);
+    }
+
+    function resizeAspectCorner(point, ratio) {
+      const start = state.drag.startCrop;
+      const handle = state.drag.handle;
+      const min = minCropSize();
+      const sx = handle.includes("w") ? -1 : 1;
+      const sy = handle.includes("n") ? -1 : 1;
+      const anchorX = sx > 0 ? start.x : start.x + start.w;
+      const anchorY = sy > 0 ? start.y : start.y + start.h;
+      const maxW = sx > 0 ? imageWidth() - anchorX : anchorX;
+      const maxH = sy > 0 ? imageHeight() - anchorY : anchorY;
+
+      let w = Math.abs(point.x - anchorX);
+      let h = Math.abs(point.y - anchorY);
+
+      if (w / ratio > h) {
+        h = w / ratio;
+      } else {
+        w = h * ratio;
+      }
+
+      w = clamp(w, min, maxW);
+      h = w / ratio;
+
+      if (h > maxH) {
+        h = maxH;
+        w = h * ratio;
+      }
+
+      if (h < min) {
+        h = Math.min(maxH, min);
+        w = h * ratio;
+      }
+
+      state.crop = {
+        x: sx > 0 ? anchorX : anchorX - w,
+        y: sy > 0 ? anchorY : anchorY - h,
+        w,
+        h
+      };
+    }
+
+    function resizeAspectHorizontal(point, ratio) {
+      const start = state.drag.startCrop;
+      const handle = state.drag.handle;
+      const min = minCropSize();
+      const centerY = start.y + start.h / 2;
+      const fixedX = handle === "e" ? start.x : start.x + start.w;
+      const maxWByX = handle === "e" ? imageWidth() - fixedX : fixedX;
+      const maxHByCenter = 2 * Math.min(centerY, imageHeight() - centerY);
+      const maxW = Math.min(maxWByX, maxHByCenter * ratio);
+
+      let w = handle === "e" ? point.x - fixedX : fixedX - point.x;
+      w = clamp(w, min, Math.max(min, maxW));
+      const h = w / ratio;
+
+      state.crop = {
+        x: handle === "e" ? fixedX : fixedX - w,
+        y: clamp(centerY - h / 2, 0, imageHeight() - h),
+        w,
+        h
+      };
+    }
+
+    function resizeAspectVertical(point, ratio) {
+      const start = state.drag.startCrop;
+      const handle = state.drag.handle;
+      const min = minCropSize();
+      const centerX = start.x + start.w / 2;
+      const fixedY = handle === "s" ? start.y : start.y + start.h;
+      const maxHByY = handle === "s" ? imageHeight() - fixedY : fixedY;
+      const maxWByCenter = 2 * Math.min(centerX, imageWidth() - centerX);
+      const maxH = Math.min(maxHByY, maxWByCenter / ratio);
+
+      let h = handle === "s" ? point.y - fixedY : fixedY - point.y;
+      h = clamp(h, min, Math.max(min, maxH));
+      const w = h * ratio;
+
+      state.crop = {
+        x: clamp(centerX - w / 2, 0, imageWidth() - w),
+        y: handle === "s" ? fixedY : fixedY - h,
+        w,
+        h
+      };
+    }
+
+    function updateRadiusFromPoint(point) {
+      const crop = state.crop;
+      const corner = state.drag.handle;
+      let next = 0;
+
+      if (corner === "tl") next = Math.min(point.x - crop.x, point.y - crop.y);
+      if (corner === "tr") next = Math.min(crop.x + crop.w - point.x, point.y - crop.y);
+      if (corner === "br") next = Math.min(crop.x + crop.w - point.x, crop.y + crop.h - point.y);
+      if (corner === "bl") next = Math.min(point.x - crop.x, crop.y + crop.h - point.y);
+
+      state.radius = clamp(next, 0, Math.min(crop.w, crop.h) / 2);
+    }
+
+    function keepRadiusInBounds() {
+      if (!state.crop) return;
+      state.radius = Math.min(state.radius, Math.min(state.crop.w, state.crop.h) / 2);
+    }
+
+    function drawPreview() {
+      if (!state.image || !state.crop) return;
+
+      const bounds = previewFrame.getBoundingClientRect();
+      const c = state.crop;
+      const maxW = Math.max(160, bounds.width - 28);
+      const maxH = Math.max(160, bounds.height - 28);
+      const scale = Math.min(maxW / c.w, maxH / c.h, 1);
+      const cssWidth = Math.max(1, c.w * scale);
+      const cssHeight = Math.max(1, c.h * scale);
+      const dpr = window.devicePixelRatio || 1;
+
+      previewCanvas.style.width = cssWidth + "px";
+      previewCanvas.style.height = cssHeight + "px";
+      previewCanvas.width = Math.round(cssWidth * dpr);
+      previewCanvas.height = Math.round(cssHeight * dpr);
+
+      clearCanvas(previewCtx, previewCanvas);
+      previewCtx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
+      previewCtx.imageSmoothingEnabled = true;
+      previewCtx.imageSmoothingQuality = "high";
+      roundedRectPath(previewCtx, 0, 0, c.w, c.h, state.radius);
+      previewCtx.clip();
+      previewCtx.drawImage(state.image, c.x, c.y, c.w, c.h, 0, 0, c.w, c.h);
+    }
+
+    function updateReadouts() {
+      if (!state.image || !state.crop) {
+        fileName.textContent = "No image loaded";
+        cropReadout.textContent = "Crop --";
+        radiusReadout.textContent = "Radius --";
+        sourceStat.textContent = "--";
+        exportStat.textContent = "--";
+        radiusStat.textContent = "--";
+        return;
+      }
+
+      const cropW = roundPixel(state.crop.w);
+      const cropH = roundPixel(state.crop.h);
+      const radius = Math.round(state.radius);
+      fileName.textContent = state.fileLabel;
+      cropReadout.textContent = `Crop ${cropW} x ${cropH}`;
+      radiusReadout.textContent = `Radius ${radius}px`;
+      sourceStat.textContent = `${imageWidth()} x ${imageHeight()}`;
+      exportStat.textContent = `${cropW} x ${cropH} PNG`;
+      radiusStat.textContent = `${radius}px`;
+    }
+
+    function renderAll() {
+      if (!state.image) {
+        updateReadouts();
+        return;
+      }
+
+      keepRadiusInBounds();
+      resizeEditorCanvas();
+      drawEditor();
+      drawPreview();
+      updateReadouts();
+    }
+
+    function updateBackground(bg) {
+      state.bg = bg;
+      canvasShell.dataset.bg = bg;
+      previewFrame.dataset.bg = bg;
+
+      for (const button of document.querySelectorAll("[data-bg-option]")) {
+        const active = button.dataset.bgOption === bg;
+        button.classList.toggle("is-active", active);
+        button.setAttribute("aria-pressed", String(active));
+      }
+    }
+
+    function exportPng() {
+      if (!state.image || !state.crop) return;
+
+      const c = state.crop;
+      const outW = roundPixel(c.w);
+      const outH = roundPixel(c.h);
+      const radiusScale = outW / c.w;
+      const exportCanvas = document.createElement("canvas");
+      const exportCtx = exportCanvas.getContext("2d");
+
+      exportCanvas.width = outW;
+      exportCanvas.height = outH;
+      exportCtx.imageSmoothingEnabled = true;
+      exportCtx.imageSmoothingQuality = "high";
+      roundedRectPath(exportCtx, 0, 0, outW, outH, Math.min(state.radius * radiusScale, outW / 2, outH / 2));
+      exportCtx.clip();
+      exportCtx.drawImage(state.image, c.x, c.y, c.w, c.h, 0, 0, outW, outH);
+
       const link = document.createElement("a");
-      link.download = "rounded-image.png";
-      link.href = canvas.toDataURL("image/png");
+      const baseName = state.fileLabel.replace(/\.[^.]+$/, "") || "image";
+      link.download = `${baseName}-rounded.png`;
+      link.href = exportCanvas.toDataURL("image/png");
       link.click();
+    }
+
+    imageInput.addEventListener("change", (event) => {
+      setImageFromFile(event.target.files[0]);
+      imageInput.value = "";
     });
 
-    updateRadiusLabel();
-    updateCustomLabels();
+    resetBtn.addEventListener("click", resetCrop);
+    downloadBtn.addEventListener("click", exportPng);
+    aspectSelect.addEventListener("change", applyAspectToCrop);
 
+    document.querySelectorAll("[data-bg-option]").forEach((button) => {
+      button.addEventListener("click", () => updateBackground(button.dataset.bgOption));
+    });
+
+    editorCanvas.addEventListener("pointerdown", (event) => {
+      if (!state.image) return;
+
+      const point = pointFromEvent(event);
+      const hit = hitTest(point);
+      if (!hit) return;
+
+      event.preventDefault();
+      editorCanvas.setPointerCapture(event.pointerId);
+      state.drag = {
+        ...hit,
+        start: point,
+        startCrop: { ...state.crop },
+        startRadius: state.radius
+      };
+      setHover(hit);
+    });
+
+    editorCanvas.addEventListener("pointermove", (event) => {
+      if (!state.image) return;
+
+      const point = pointFromEvent(event);
+
+      if (state.drag) {
+        event.preventDefault();
+
+        if (state.drag.type === "radius") {
+          updateRadiusFromPoint(point);
+        } else if (state.drag.handle === "move") {
+          moveCropFromDrag(point);
+        } else {
+          const ratio = getAspectRatio();
+          if (ratio) resizeAspectCrop(point, ratio);
+          else resizeFreeCrop(point);
+          keepRadiusInBounds();
+        }
+
+        renderAll();
+        return;
+      }
+
+      setHover(hitTest(point));
+      drawEditor();
+    });
+
+    function endDrag(event) {
+      if (!state.drag) return;
+      if (editorCanvas.hasPointerCapture(event.pointerId)) {
+        editorCanvas.releasePointerCapture(event.pointerId);
+      }
+      state.drag = null;
+      setHover(hitTest(pointFromEvent(event)));
+      renderAll();
+    }
+
+    editorCanvas.addEventListener("pointerup", endDrag);
+    editorCanvas.addEventListener("pointercancel", endDrag);
+    editorCanvas.addEventListener("pointerleave", (event) => {
+      if (state.drag) return;
+      setHover(null);
+      drawEditor();
+    });
+
+    canvasShell.addEventListener("dragenter", (event) => {
+      event.preventDefault();
+      canvasShell.classList.add("is-over");
+    });
+
+    canvasShell.addEventListener("dragover", (event) => {
+      event.preventDefault();
+    });
+
+    canvasShell.addEventListener("dragleave", (event) => {
+      if (!canvasShell.contains(event.relatedTarget)) {
+        canvasShell.classList.remove("is-over");
+      }
+    });
+
+    canvasShell.addEventListener("drop", (event) => {
+      event.preventDefault();
+      canvasShell.classList.remove("is-over");
+      setImageFromFile(event.dataTransfer.files[0]);
+    });
+
+    window.addEventListener("resize", renderAll);
+
+    if ("ResizeObserver" in window) {
+      const observer = new ResizeObserver(renderAll);
+      observer.observe(canvasShell);
+      observer.observe(previewFrame);
+    }
+
+    updateBackground("dark");
+    updateReadouts();
   </script>
 </body>
 </html>
