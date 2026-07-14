@@ -7,10 +7,10 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="icon" type="image/x-icon" href="favicon.ico" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32x32.png" />
-  <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16x16.png" />
-  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
+  <link rel="icon" type="image/x-icon" href="favicon.ico?v=2" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32x32.png?v=2" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16x16.png?v=2" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png?v=2" />
   <title>Image Rounder</title>
   <style>
     :root {
@@ -55,7 +55,6 @@
     }
 
     button,
-    label[for="imageInput"],
     select {
       -webkit-tap-highlight-color: transparent;
     }
@@ -136,11 +135,18 @@
       flex-wrap: wrap;
     }
 
+    .image-only {
+      display: none;
+    }
+
+    .has-image .image-only {
+      display: inline-flex;
+    }
+
     input[type="file"] {
       display: none;
     }
 
-    .button,
     button {
       min-height: 38px;
       border: 1px solid transparent;
@@ -157,24 +163,20 @@
       transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
     }
 
-    .button:hover,
     button:hover {
       background: #e8ecf2;
     }
 
-    .button:active,
     button:active {
       transform: translateY(1px);
     }
 
-    .button.primary,
     button.primary {
       background: var(--accent);
       color: #ffffff;
       border-color: var(--accent);
     }
 
-    .button.primary:hover,
     button.primary:hover {
       background: var(--accent-strong);
     }
@@ -236,6 +238,21 @@
       gap: 8px;
       color: var(--muted);
       font-size: 0.9rem;
+    }
+
+    .export-field {
+      min-height: 38px;
+      padding: 0 8px 0 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .export-field select {
+      min-height: 30px;
+      border: 0;
+      padding-left: 0;
+      background-color: transparent;
     }
 
     select {
@@ -308,6 +325,15 @@
       transition: background 160ms ease;
     }
 
+    .app-shell:not(.has-image) .canvas-shell {
+      cursor: pointer;
+    }
+
+    .app-shell:not(.has-image) .canvas-shell:hover .empty-mark {
+      opacity: 0.95;
+      transform: translateY(-1px);
+    }
+
     .canvas-shell[data-bg="light"] {
       background: #f7f8fb;
     }
@@ -373,6 +399,7 @@
       border: 1px solid currentColor;
       opacity: 0.72;
       position: relative;
+      transition: opacity 160ms ease, transform 160ms ease;
     }
 
     .empty-mark::before,
@@ -542,9 +569,13 @@
         justify-content: stretch;
       }
 
-      .actions .button,
       .actions button {
         flex: 1 1 auto;
+      }
+
+      .actions .export-field {
+        flex: 1 1 100%;
+        justify-content: space-between;
       }
 
       .control-strip {
@@ -589,10 +620,17 @@
       </div>
 
       <div class="actions">
-        <label class="button" for="imageInput">Open</label>
         <input type="file" id="imageInput" accept="image/*" />
-        <button id="resetBtn" type="button" disabled>Reset</button>
-        <button class="primary" id="downloadBtn" type="button" disabled>Export PNG</button>
+        <button class="image-only" id="clearBtn" type="button" disabled>Clear</button>
+        <label class="field export-field image-only" for="exportFormat">
+          <span>Format</span>
+          <select id="exportFormat" disabled>
+            <option value="png">PNG</option>
+            <option value="jpeg">JPG</option>
+            <option value="webp">WebP</option>
+          </select>
+        </label>
+        <button class="primary image-only" id="downloadBtn" type="button" disabled>Export PNG</button>
       </div>
     </header>
 
@@ -631,8 +669,8 @@
           <div class="empty-state" id="emptyState">
             <div class="empty-state-inner">
               <div class="empty-mark" aria-hidden="true"></div>
-              <p class="empty-title">Open an image</p>
-              <p class="empty-subtitle">Drop one here or use Open</p>
+              <p class="empty-title">Tap to choose an image</p>
+              <p class="empty-subtitle">Drop one here or click anywhere in this area</p>
             </div>
           </div>
         </div>
@@ -668,7 +706,8 @@
   <script>
     const app = document.getElementById("app");
     const imageInput = document.getElementById("imageInput");
-    const resetBtn = document.getElementById("resetBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const exportFormat = document.getElementById("exportFormat");
     const downloadBtn = document.getElementById("downloadBtn");
     const aspectSelect = document.getElementById("aspectSelect");
     const canvasShell = document.getElementById("canvasShell");
@@ -759,16 +798,29 @@
       ctx.quadraticCurveTo(x, y, x + r, y);
     }
 
-    function resetCrop() {
-      if (!state.image) return;
-      state.crop = {
-        x: 0,
-        y: 0,
-        w: imageWidth(),
-        h: imageHeight()
-      };
+    function clearImage() {
+      if (state.sourceUrl) URL.revokeObjectURL(state.sourceUrl);
+      state.image = null;
+      state.sourceUrl = "";
+      state.fileLabel = "";
+      state.crop = null;
       state.radius = 0;
+      state.drag = null;
+      state.hover = null;
       aspectSelect.value = "free";
+      imageInput.value = "";
+      clearBtn.disabled = true;
+      exportFormat.disabled = true;
+      downloadBtn.disabled = true;
+      app.classList.remove("has-image");
+      editorCanvas.removeAttribute("style");
+      previewCanvas.removeAttribute("style");
+      editorCanvas.width = 0;
+      editorCanvas.height = 0;
+      previewCanvas.width = 0;
+      previewCanvas.height = 0;
+      clearCanvas(editorCtx, editorCanvas);
+      clearCanvas(previewCtx, previewCanvas);
       renderAll();
     }
 
@@ -834,7 +886,8 @@
         };
         state.radius = Math.round(Math.min(imageWidth(), imageHeight()) * 0.08);
         aspectSelect.value = "free";
-        resetBtn.disabled = false;
+        clearBtn.disabled = false;
+        exportFormat.disabled = false;
         downloadBtn.disabled = false;
         app.classList.add("has-image");
         renderAll();
@@ -1292,7 +1345,7 @@
       cropReadout.textContent = `Crop ${cropW} x ${cropH}`;
       radiusReadout.textContent = `Radius ${radius}px`;
       sourceStat.textContent = `${imageWidth()} x ${imageHeight()}`;
-      exportStat.textContent = `${cropW} x ${cropH} PNG`;
+      exportStat.textContent = `${cropW} x ${cropH} ${exportFormatLabel()}`;
       radiusStat.textContent = `${radius}px`;
     }
 
@@ -1321,7 +1374,36 @@
       }
     }
 
-    function exportPng() {
+    function exportFormatLabel() {
+      const format = exportFormat.value;
+      if (format === "jpeg") return "JPG";
+      if (format === "webp") return "WebP";
+      return "PNG";
+    }
+
+    function exportMimeType() {
+      if (exportFormat.value === "jpeg") return "image/jpeg";
+      if (exportFormat.value === "webp") return "image/webp";
+      return "image/png";
+    }
+
+    function exportExtension() {
+      if (exportFormat.value === "jpeg") return "jpg";
+      if (exportFormat.value === "webp") return "webp";
+      return "png";
+    }
+
+    function exportBackgroundColor() {
+      if (state.bg === "dark") return "#17181c";
+      return "#ffffff";
+    }
+
+    function updateExportButton() {
+      downloadBtn.textContent = `Export ${exportFormatLabel()}`;
+      updateReadouts();
+    }
+
+    function exportImage() {
       if (!state.image || !state.crop) return;
 
       const c = state.crop;
@@ -1335,14 +1417,20 @@
       exportCanvas.height = outH;
       exportCtx.imageSmoothingEnabled = true;
       exportCtx.imageSmoothingQuality = "high";
+
+      if (exportFormat.value === "jpeg") {
+        exportCtx.fillStyle = exportBackgroundColor();
+        exportCtx.fillRect(0, 0, outW, outH);
+      }
+
       roundedRectPath(exportCtx, 0, 0, outW, outH, Math.min(state.radius * radiusScale, outW / 2, outH / 2));
       exportCtx.clip();
       exportCtx.drawImage(state.image, c.x, c.y, c.w, c.h, 0, 0, outW, outH);
 
       const link = document.createElement("a");
       const baseName = state.fileLabel.replace(/\.[^.]+$/, "") || "image";
-      link.download = `${baseName}-rounded.png`;
-      link.href = exportCanvas.toDataURL("image/png");
+      link.download = `${baseName}-rounded.${exportExtension()}`;
+      link.href = exportCanvas.toDataURL(exportMimeType(), 0.94);
       link.click();
     }
 
@@ -1351,8 +1439,9 @@
       imageInput.value = "";
     });
 
-    resetBtn.addEventListener("click", resetCrop);
-    downloadBtn.addEventListener("click", exportPng);
+    clearBtn.addEventListener("click", clearImage);
+    exportFormat.addEventListener("change", updateExportButton);
+    downloadBtn.addEventListener("click", exportImage);
     aspectSelect.addEventListener("change", applyAspectToCrop);
 
     document.querySelectorAll("[data-bg-option]").forEach((button) => {
@@ -1427,6 +1516,11 @@
       canvasShell.classList.add("is-over");
     });
 
+    canvasShell.addEventListener("click", () => {
+      if (state.image) return;
+      imageInput.click();
+    });
+
     canvasShell.addEventListener("dragover", (event) => {
       event.preventDefault();
     });
@@ -1452,6 +1546,7 @@
     }
 
     updateBackground("dark");
+    updateExportButton();
     updateReadouts();
   </script>
 </body>
