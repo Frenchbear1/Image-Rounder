@@ -1,5 +1,5 @@
-/* Image Rounder service worker: offline support + "Share to Image Rounder" on Android. */
-const VERSION = "v2.0.0";
+/* Image Studio service worker: offline support + "Share to Image Studio" on Android. */
+const VERSION = "v2.1.0";
 const CORE = `image-rounder-core-${VERSION}`;
 const RUNTIME = `image-rounder-runtime-${VERSION}`;
 const SHARE = "image-rounder-share";

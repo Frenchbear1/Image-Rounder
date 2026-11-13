@@ -1,7 +1,7 @@
 {
-  "name": "Image Rounder",
-  "short_name": "Rounder",
-  "description": "Crop, round corners, and save images on any device. Works offline.",
+  "name": "Image Studio",
+  "short_name": "Image Studio",
+  "description": "Round corners, crop, resize, and compress images on any device. Works offline.",
   "id": "/",
   "start_url": "./",
   "scope": "./",

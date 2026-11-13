@@ -1,4 +1,4 @@
-/* Image Rounder — crop, round, and save images on any device. Everything runs locally. */
+/* Image Studio — round, crop, resize, and compress images on any device. Everything runs locally. */
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -30,7 +30,14 @@ const RATIOS = [
   ["2:3", "2:3"], ["4:3", "4:3"], ["3:2", "3:2"], ["16:9", "16:9"], ["9:16", "9:16"]
 ];
 
-const SIZES = [[0, "Full size"], [4096, "4096"], [2048, "2048"], [1080, "1080"], [512, "512"]];
+// Resolution presets fit the output inside a box that follows the crop's orientation.
+const RES_PRESETS = [
+  [{ mode: "full" }, "Original"], [{ mode: "pct", pct: 50 }, "50%"], [{ mode: "pct", pct: 200 }, "2×"],
+  [{ mode: "box", long: 1280, short: 720 }, "720p"], [{ mode: "box", long: 1920, short: 1080 }, "1080p"],
+  [{ mode: "box", long: 2560, short: 1440 }, "2K"], [{ mode: "box", long: 3840, short: 2160 }, "4K"],
+  [{ mode: "box", long: 7680, short: 4320 }, "8K"]
+];
+const FILE_PRESETS = [0.1, 0.25, 0.5, 1, 2, 5, 10];
 
 const PRESETS = [
   { label: "Soft", glyph: "18%", style: { shape: "round", radius: 0.05, border: 0, shadow: false } },
@@ -47,7 +54,7 @@ const FILL_COLORS = [null, "#ffffff", "#111318", "#f2efe9"];
 
 /* ---------- State ---------- */
 const DEFAULT_STYLE = { shape: "round", radius: 0.08, corners: [true, true, true, true], border: 0, borderColor: "#ffffff", shadow: false, fill: null };
-const DEFAULT_OUT = { format: "png", quality: 0.9, maxSide: 0 };
+const DEFAULT_OUT = { format: "png", quality: 0.9, sizeMode: "res", res: { mode: "full" }, targetMB: 1 };
 const DEFAULT_PREFS = { theme: "auto", viewBg: "dark", ratio: "free", tab: "crop" };
 
 const S = {
@@ -89,6 +96,9 @@ function loadSettings() {
     if (!saved) return;
     Object.assign(S.style, saved.style || {});
     Object.assign(S.out, saved.out || {});
+    delete S.out.maxSide;
+    if (!S.out.res || !S.out.res.mode) S.out.res = { mode: "full" };
+    if (!(S.out.targetMB > 0)) S.out.targetMB = 1;
     Object.assign(S.prefs, saved.prefs || {});
     if (!Array.isArray(S.style.corners) || S.style.corners.length !== 4) S.style.corners = [true, true, true, true];
   } catch (e) { /* storage unavailable */ }
@@ -341,7 +351,7 @@ async function addFiles(fileList) {
       let { w, h } = sizeOf(src);
       const fitted = scaledCopy(src, w, h, Infinity, MAX_AREA);
       if (fitted) { release(src); src = fitted; w = fitted.width; h = fitted.height; shrunk = true; }
-      const item = { id: nextId++, name: file.name || "image", src, w, h, crop: { x: 0, y: 0, w, h }, view: null, thumb: null };
+      const item = { id: nextId++, name: file.name || "image", bytes: file.size || 0, src, w, h, crop: { x: 0, y: 0, w, h }, view: null, thumb: null };
       buildView(item);
       fitCropToRatio(item);
       S.items.push(item);
@@ -423,7 +433,7 @@ function renderTray() {
 
 function updateSub() {
   const it = active();
-  $("#sub").textContent = it ? (S.items.length > 1 ? `${it.name} · ${S.items.findIndex((x) => x.id === it.id) + 1}/${S.items.length}` : it.name) : "Crop · round · save — on any device";
+  $("#sub").textContent = it ? (S.items.length > 1 ? `${it.name} · ${S.items.findIndex((x) => x.id === it.id) + 1}/${S.items.length}` : it.name) : "Round · crop · resize — on any device";
 }
 
 /* ---------- Crop math ---------- */
@@ -523,9 +533,29 @@ function transformItem(item, kind) {
 }
 
 /* ---------- Output geometry & rendering ---------- */
-function geometry(item, out = S.out, st = S.style) {
+function resolutionScale(c, res) {
+  if (res.mode === "pct") return res.pct / 100;
+  if (res.mode === "box") return Math.min(res.long / Math.max(c.w, c.h), res.short / Math.min(c.w, c.h));
+  if (res.mode === "width") return res.w / c.w;
+  if (res.mode === "height") return res.h / c.h;
+  return 1;
+}
+
+const fileMode = (out = S.out) => out.sizeMode === "file" && out.format !== "ico";
+
+// k = output pixels per crop pixel. In file-size mode it comes from the last search result.
+function geometry(item, out = S.out, st = S.style, kOverride) {
   const c = item.crop;
-  let k = out.maxSide && Math.max(c.w, c.h) > out.maxSide ? out.maxSide / Math.max(c.w, c.h) : 1;
+  let k = kOverride;
+  if (k == null) {
+    if (fileMode(out)) {
+      const hit = S.cache && S.cache.id === item.id && S.cache.rev === S.rev && S.cache.k;
+      k = hit || 1;
+    } else {
+      k = out.format === "ico" ? 1 : resolutionScale(c, out.res);
+    }
+  }
+  k = Math.max(k, 1 / Math.min(c.w, c.h));
   const calc = () => {
     const w = Math.max(1, Math.round(c.w * k));
     const h = Math.max(1, Math.round(c.h * k));
@@ -931,10 +961,23 @@ function drawPreview() {
   renderOutput(pctx, it, g, { useView: true, seg: 32 });
 }
 
+function fmtMB(mb) {
+  return mb < 1 ? `${Math.round(mb * 1000)} KB` : `${+mb.toFixed(2)} MB`;
+}
+
+// Keep the W × H boxes showing the real output size (unless the user is typing in them).
+function syncDims(it, g) {
+  const wIn = $("#outW");
+  const hIn = $("#outH");
+  if (document.activeElement !== wIn) wIn.value = g.w;
+  if (document.activeElement !== hIn) hIn.value = g.h;
+  wIn.disabled = hIn.disabled = fileMode();
+}
+
 function fmtBytes(n) {
-  if (n < 1024) return n + " B";
-  if (n < 1024 * 1024) return (n / 1024).toFixed(n < 10240 ? 1 : 0) + " KB";
-  return (n / 1048576).toFixed(n < 10485760 ? 2 : 1) + " MB";
+  if (n < 1000) return n + " B";
+  if (n < 1e6) return (n / 1000).toFixed(n < 10000 ? 1 : 0) + " KB";
+  return (n / 1e6).toFixed(n < 1e7 ? 2 : 1) + " MB";
 }
 
 function updateReadouts() {
@@ -945,11 +988,17 @@ function updateReadouts() {
   const short = Math.min(it.crop.w, it.crop.h);
   const radiusText = S.style.shape === "circle" ? "circle" : `${Math.round(S.style.radius * short * g.k)}px corners`;
   hud.textContent = S.resultView ? `Preview · ${g.W} × ${g.H}` : `${Math.round(it.crop.w)} × ${Math.round(it.crop.h)} · ${radiusText}`;
-  $("#statOut").textContent = `${g.W} × ${g.H} ${fmt.label}`;
-  $("#statSrc").textContent = `${it.w} × ${it.h}`;
+  $("#statSrc").textContent = `${it.w} × ${it.h}${it.bytes ? " · " + fmtBytes(it.bytes) : ""}`;
   const cached = S.cache && S.cache.id === it.id && S.cache.rev === S.rev ? S.cache : null;
-  $("#statSize").textContent = cached ? fmtBytes(cached.blob.size) : "…";
-  $("#saveSub").textContent = `${fmt.label} · ${g.W}×${g.H}${cached ? " · " + fmtBytes(cached.blob.size) : ""}${g.limited ? " · fitted" : ""}`;
+  const fm = fileMode();
+  let sizeText = cached ? fmtBytes(cached.blob.size) : fm ? "Finding best fit…" : "…";
+  if (cached && it.bytes) sizeText += ` · ${Math.round((cached.blob.size / it.bytes) * 100)}% of original`;
+  $("#statSize").textContent = sizeText;
+  $("#statQ").textContent = cached && cached.q != null ? `${Math.round(cached.q * 100)}%` : fmt.quality ? `${Math.round(S.out.quality * 100)}%` : "Lossless";
+  const outText = fm && !cached ? `≤ ${fmtMB(S.out.targetMB)}` : `${g.W} × ${g.H}`;
+  $("#statOut").textContent = `${outText} ${fmt.label}`;
+  $("#saveSub").textContent = `${fmt.label} · ${outText}${cached ? " · " + fmtBytes(cached.blob.size) : ""}${g.limited ? " · fitted" : ""}${cached && cached.missed ? " · over target" : ""}`;
+  syncDims(it, g);
 }
 
 /* ---------- Change pipeline ---------- */
@@ -1122,34 +1171,105 @@ ${fill}<g transform="translate(${g.pad} ${g.pad})"${st.shadow ? ' filter="url(#d
 
 function outputName(item, fmt) {
   const base = (item.name || "image").replace(/\.[^.]+$/, "").replace(/[\\/:*?"<>|]+/g, "-").slice(0, 80) || "image";
-  return `${base}-rounded.${fmt.ext}`;
+  const rounded = S.style.shape === "circle" || (S.style.radius > 0 && S.style.corners.some(Boolean));
+  return `${base}-${rounded ? "rounded" : "resized"}.${fmt.ext}`;
+}
+
+function renderCanvas(item, g, fmtKey) {
+  const canvas = document.createElement("canvas");
+  canvas.width = g.W;
+  canvas.height = g.H;
+  const ctx = canvas.getContext("2d", { willReadFrequently: fmtKey === "bmp" });
+  renderOutput(ctx, item, g, { fill: effectiveFill(FORMATS[fmtKey]) });
+  return canvas;
+}
+
+async function nativeBlob(canvas, fmt, quality) {
+  const blob = await canvasToBlob(canvas, fmt.mime, fmt.quality ? quality : undefined);
+  if (blob.type !== fmt.mime) throw new Error(`${fmt.label} isn't supported by this browser`);
+  return blob;
+}
+
+async function encodeAt(item, g, fmtKey, quality) {
+  const fmt = FORMATS[fmtKey];
+  let blob;
+  if (fmtKey === "svg") {
+    blob = await makeSvg(item, g);
+  } else {
+    const canvas = renderCanvas(item, g, fmtKey);
+    try {
+      if (fmtKey === "ico") blob = await makeIco(canvas);
+      else if (fmtKey === "bmp") blob = makeBmp(canvas);
+      else blob = await nativeBlob(canvas, fmt, quality);
+    } finally {
+      release(canvas);
+    }
+  }
+  return { blob, k: g.k, w: g.W, h: g.H, q: fmt.quality ? quality : null, limited: g.limited };
+}
+
+// Find the biggest, best-looking file that stays under the target size.
+// Lossy formats lower quality first (keeps full resolution), then shrink resolution.
+async function fitToSize(item, fmtKey) {
+  const fmt = FORMATS[fmtKey];
+  const target = S.out.targetMB * 1e6;
+  let best = null;
+  let smallest = null;
+  const consider = (r) => {
+    if (r.blob.size <= target && (!best || r.blob.size > best.blob.size)) best = r;
+    if (!smallest || r.blob.size < smallest.blob.size) smallest = r;
+    return r;
+  };
+  const g1 = geometry(item, S.out, S.style, 1);
+  const ceilingQ = fmt.quality ? S.out.quality : undefined;
+  let ref;
+  if (fmt.quality) {
+    const canvas = renderCanvas(item, g1, fmtKey);
+    try {
+      const enc = async (q) => consider({ blob: await nativeBlob(canvas, fmt, q), k: g1.k, w: g1.W, h: g1.H, q, limited: g1.limited });
+      const top = await enc(ceilingQ);
+      if (top.blob.size <= target) return top;
+      ref = top;
+      const floorQ = Math.min(0.5, ceilingQ);
+      const low = await enc(floorQ);
+      if (low.blob.size <= target) {
+        let lo = floorQ;
+        let hi = ceilingQ;
+        for (let i = 0; i < 6; i++) {
+          const mid = (lo + hi) / 2;
+          const r = await enc(mid);
+          if (r.blob.size <= target) lo = mid; else hi = mid;
+          if (r.blob.size <= target && r.blob.size > target * 0.95) break;
+        }
+        return best;
+      }
+    } finally {
+      release(canvas);
+    }
+  } else {
+    ref = consider(await encodeAt(item, g1, fmtKey));
+    if (ref.blob.size <= target) return ref;
+  }
+  // Shrink resolution. File size grows roughly with pixel count, so step by sqrt of the ratio.
+  const q = fmt.quality ? Math.min(ceilingQ, 0.8) : undefined;
+  let k = ref.k;
+  let size = ref.blob.size;
+  for (let i = 0; i < 8; i++) {
+    k = clamp(k * Math.sqrt(target / size) * (i ? 0.99 : 0.96), 0.005, ref.k);
+    const r = consider(await encodeAt(item, geometry(item, S.out, S.style, k), fmtKey, q));
+    size = r.blob.size;
+    if (size <= target && size > target * 0.93) break;
+    if (Math.min(r.w, r.h) <= 8) break;
+  }
+  if (best) return best;
+  return { ...smallest, missed: true };
 }
 
 async function encodeItem(item) {
   const fmtKey = S.out.format;
   const fmt = FORMATS[fmtKey];
-  const g = geometry(item);
-  let blob;
-  if (fmtKey === "svg") {
-    blob = await makeSvg(item, g);
-  } else {
-    const canvas = document.createElement("canvas");
-    canvas.width = g.W;
-    canvas.height = g.H;
-    const ctx = canvas.getContext("2d", { willReadFrequently: fmtKey === "bmp" });
-    renderOutput(ctx, item, g, { fill: effectiveFill(fmt) });
-    try {
-      if (fmtKey === "ico") blob = await makeIco(canvas);
-      else if (fmtKey === "bmp") blob = makeBmp(canvas);
-      else {
-        blob = await canvasToBlob(canvas, fmt.mime, fmt.quality ? S.out.quality : undefined);
-        if (blob.type !== fmt.mime) throw new Error(`${fmt.label} isn't supported by this browser`);
-      }
-    } finally {
-      release(canvas);
-    }
-  }
-  return { blob, name: outputName(item, fmt), mime: fmt.mime, limited: g.limited };
+  const r = fileMode() ? await fitToSize(item, fmtKey) : await encodeAt(item, geometry(item), fmtKey, S.out.quality);
+  return { ...r, name: outputName(item, fmt), mime: fmt.mime };
 }
 
 async function getEncoded(item) {
@@ -1277,6 +1397,7 @@ async function save(mode = preferShare ? "share" : "download") {
   }
   setBusy(false);
   if (res.limited) toast("Scaled down to fit this device's limit", "", 2400);
+  if (res.missed) toast(`Couldn't get under ${fmtMB(S.out.targetMB)} — this is the smallest (${fmtBytes(res.blob.size)})`, "err", 4200);
 
   if (mode === "share") {
     const file = new File([res.blob], res.name, { type: res.mime });
@@ -1484,16 +1605,60 @@ function buildControls() {
   qualityRange.addEventListener("input", () => { S.out.quality = +qualityRange.value / 100; syncControls(); changed({ light: true }); });
   qualityRange.addEventListener("change", () => changed());
 
-  const sizeWrap = $("#sizeChips");
-  for (const [v, label] of SIZES) sizeWrap.append(chip(label, { size: v }));
-  sizeWrap.addEventListener("click", (e) => {
-    const b = e.target.closest("[data-size]");
+  $("#sizeModeSeg").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-size-mode]");
     if (!b) return;
-    S.out.maxSide = +b.dataset.size;
+    S.out.sizeMode = b.dataset.sizeMode;
     buzz(6);
     syncControls();
     changed();
   });
+
+  const resWrap = $("#resChips");
+  RES_PRESETS.forEach(([res, label], i) => resWrap.append(chip(label, { res: i })));
+  resWrap.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-res]");
+    if (!b) return;
+    S.out.res = { ...RES_PRESETS[+b.dataset.res][0] };
+    buzz(6);
+    syncControls();
+    changed();
+  });
+
+  // Typing a width or height sets an exact size; the other side follows the crop's shape.
+  const dimInput = (el, mode) => {
+    el.addEventListener("input", () => {
+      const v = Math.round(+el.value);
+      if (!(v >= 1)) return;
+      S.out.res = mode === "width" ? { mode, w: Math.min(v, 30000) } : { mode, h: Math.min(v, 30000) };
+      syncControls();
+      changed({ light: true });
+    });
+    el.addEventListener("change", () => { el.blur(); changed(); });
+    el.addEventListener("keydown", (e) => { if (e.key === "Enter") el.blur(); });
+  };
+  dimInput($("#outW"), "width");
+  dimInput($("#outH"), "height");
+
+  const fileWrap = $("#fileChips");
+  for (const mb of FILE_PRESETS) fileWrap.append(chip(fmtMB(mb), { mb }));
+  fileWrap.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-mb]");
+    if (!b) return;
+    S.out.targetMB = +b.dataset.mb;
+    buzz(6);
+    syncControls();
+    changed();
+  });
+  const mbIn = $("#targetMB");
+  mbIn.addEventListener("input", () => {
+    const v = +mbIn.value;
+    if (!(v > 0)) return;
+    S.out.targetMB = Math.min(v, 500);
+    syncControls();
+    changed({ light: true });
+  });
+  mbIn.addEventListener("change", () => changed());
 
   // Tabs
   const tabs = $("#tabs");
@@ -1580,7 +1745,18 @@ function syncControls(rebuildSwatches = true) {
   $("#qualityGroup").style.display = fmt.quality ? "" : "none";
   setRange($("#qualityRange"), Math.round(S.out.quality * 100));
   $("#qualityOut").textContent = `${Math.round(S.out.quality * 100)}%`;
-  $$("#sizeChips [data-size]").forEach((b) => b.classList.toggle("is-active", +b.dataset.size === S.out.maxSide));
+  const isIco = S.out.format === "ico";
+  const fm = fileMode();
+  $("#sizeGroup").style.display = isIco ? "none" : "";
+  $("#icoNote").hidden = !isIco;
+  $$("#sizeModeSeg [data-size-mode]").forEach((b) => b.classList.toggle("is-active", b.dataset.sizeMode === S.out.sizeMode));
+  $("#resControls").hidden = fm;
+  $("#fileControls").hidden = !fm;
+  const resKey = JSON.stringify(S.out.res);
+  $$("#resChips [data-res]").forEach((b) => b.classList.toggle("is-active", JSON.stringify(RES_PRESETS[+b.dataset.res][0]) === resKey));
+  $$("#fileChips [data-mb]").forEach((b) => b.classList.toggle("is-active", +b.dataset.mb === S.out.targetMB));
+  if (document.activeElement !== $("#targetMB")) $("#targetMB").value = S.out.targetMB;
+  $("#qualityHead").firstChild.textContent = fm ? "Max quality " : "Quality ";
   const fillNote = !fmt.alpha && !S.style.fill ? `${fmt.label} has no transparency, so corners are filled white — pick a color to change it.` : S.style.fill ? "" : "Corners stay transparent.";
   $("#fillNote").textContent = [fillNote, fmt.note ? `${fmt.label}: ${fmt.note}.` : ""].filter(Boolean).join(" ");
   $("#saveLabel").textContent = preferShare ? (isIOS ? "Save to Photos" : "Save / Share") : "Download";
@@ -1589,7 +1765,7 @@ function syncControls(rebuildSwatches = true) {
 
 function setTab(tab) {
   S.prefs.tab = tab;
-  const names = ["crop", "shape", "style", "export"];
+  const names = ["crop", "shape", "style", "resize", "export"];
   $("#tabs").style.setProperty("--i", names.indexOf(tab));
   $$("#tabs [data-tab]").forEach((b) => { const on = b.dataset.tab === tab; b.classList.toggle("is-active", on); b.setAttribute("aria-selected", String(on)); });
   $$(".tab-panel").forEach((p) => p.classList.toggle("is-active", p.dataset.panel === tab));

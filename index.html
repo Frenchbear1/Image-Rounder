@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="description" content="Crop, round corners, and save images on any device. Works offline, nothing leaves your device." />
+  <meta name="description" content="Round corners, crop, resize, and compress images on any device. Works offline, nothing leaves your device." />
   <meta name="theme-color" content="#0d0f13" id="themeColor" />
   <meta name="color-scheme" content="light dark" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="Rounder" />
+  <meta name="apple-mobile-web-app-title" content="Image Studio" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" type="image/x-icon" href="favicon.ico?v=3" />
   <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32x32.png?v=3" />
   <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16x16.png?v=3" />
   <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png?v=3" />
-  <title>Image Rounder</title>
+  <title>Image Studio — round, crop & resize</title>
   <script>
     // Apply the saved theme before first paint so there is no flash.
     (function () {
@@ -296,7 +296,7 @@
       --i: 0;
       display: none;
       position: relative;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(5, 1fr);
       margin: 8px 8px 0;
       padding: 4px;
       border-radius: 999px;
@@ -304,7 +304,7 @@
     }
     .tabs::before {
       content: ""; position: absolute; top: 4px; bottom: 4px; left: 4px;
-      width: calc((100% - 8px) / 4);
+      width: calc((100% - 8px) / 5);
       border-radius: 999px;
       background: var(--surface-solid);
       box-shadow: 0 2px 10px rgba(0, 0, 0, .12);
@@ -313,7 +313,7 @@
     }
     .tabs button {
       position: relative; z-index: 1; height: 36px; border: 0; background: none;
-      font-size: .86rem; font-weight: 650; color: var(--muted);
+      font-size: .84rem; font-weight: 650; color: var(--muted); padding: 0;
       transition: color 160ms;
     }
     .tabs button.is-active { color: var(--text); }
@@ -432,6 +432,23 @@
       display: grid; place-items: center; overflow: hidden; position: relative;
     }
     .preview canvas { display: block; }
+    .dims { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+    .dims label {
+      flex: 1 1 0; min-width: 0; height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 12px;
+      border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line);
+      transition: border-color 160ms, box-shadow 160ms;
+    }
+    .dims label.mb { flex: 0 1 200px; }
+    .dims label:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(47, 107, 255, .18); }
+    .dims label span { font-size: .76rem; font-weight: 750; color: var(--muted); }
+    .dims input {
+      width: 100%; min-width: 0; border: 0; background: none; outline: none;
+      font-size: 16px; font-weight: 650; font-variant-numeric: tabular-nums; -moz-appearance: textfield;
+    }
+    .dims input::-webkit-outer-spin-button, .dims input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .dims input:disabled { opacity: .5; }
+    .dims-x, .dims-unit { color: var(--muted); font-weight: 700; font-size: .86rem; }
+    [hidden] { display: none !important; }
     .stats { margin: 10px 0 0; display: grid; gap: 2px; }
     .stats div { display: flex; justify-content: space-between; padding: 7px 0; font-size: .86rem; border-bottom: 1px dashed var(--line); }
     .stats dt { color: var(--muted); }
@@ -623,8 +640,8 @@
       <div class="brand">
         <div class="logo" aria-hidden="true"></div>
         <div style="min-width:0">
-          <h1>Image Rounder</h1>
-          <p class="sub" id="sub">Crop · round · save — on any device</p>
+          <h1>Image Studio</h1>
+          <p class="sub" id="sub">Round · crop · resize — on any device</p>
         </div>
       </div>
       <div class="bar-actions">
@@ -653,7 +670,7 @@
           <div class="empty-inner">
             <div class="morph" aria-hidden="true"></div>
             <h2>Round anything.</h2>
-            <p>Pick, drop, or paste photos. Crop, round the corners, and save straight to your phone. Nothing ever leaves your device.</p>
+            <p>Pick, drop, or paste photos. Round the corners, crop, resize or shrink to a file size, and save straight to your phone. Nothing ever leaves your device.</p>
             <button class="btn primary big" id="pickBtn" type="button"><svg class="i"><use href="#i-photo"/></svg>Choose photos</button>
             <div class="formats" aria-label="Supported formats">
               <span>JPG</span><span>PNG</span><span>HEIC</span><span>WebP</span><span>AVIF</span><span>GIF</span><span>TIFF</span><span>SVG</span><span>BMP</span><span>ICO</span>
@@ -670,6 +687,7 @@
         <button type="button" role="tab" data-tab="crop" class="is-active">Crop</button>
         <button type="button" role="tab" data-tab="shape">Shape</button>
         <button type="button" role="tab" data-tab="style">Style</button>
+        <button type="button" role="tab" data-tab="resize">Resize</button>
         <button type="button" role="tab" data-tab="export">Export</button>
       </nav>
 
@@ -729,23 +747,49 @@
           </div>
         </section>
 
+        <section class="tab-panel" data-panel="resize">
+          <h3 class="sec-title tab-head">Resize</h3>
+          <p class="note" id="icoNote" hidden>ICO files always contain fixed icon sizes (16–256 px), so resizing is turned off for ICO.</p>
+          <div class="group" id="sizeGroup">
+                        <div class="seg" id="sizeModeSeg">
+              <button type="button" data-size-mode="res">Resolution</button>
+              <button type="button" data-size-mode="file">File size</button>
+            </div>
+            <div id="resControls">
+              <div class="chips scroll" id="resChips" aria-label="Resolution presets" style="margin-top:12px"></div>
+              <div class="dims">
+                <label><span>W</span><input id="outW" type="number" inputmode="numeric" min="1" max="30000" aria-label="Output width in pixels" /></label>
+                <span class="dims-x">×</span>
+                <label><span>H</span><input id="outH" type="number" inputmode="numeric" min="1" max="30000" aria-label="Output height in pixels" /></label>
+                <span class="dims-unit">px</span>
+              </div>
+              <p class="note">Type either side and the other follows your crop. Upscaling works too.</p>
+            </div>
+            <div id="fileControls" hidden>
+              <div class="chips scroll" id="fileChips" aria-label="Target file size" style="margin-top:12px"></div>
+              <div class="dims">
+                <label class="mb"><span>Max</span><input id="targetMB" type="number" inputmode="decimal" min="0.01" step="0.05" aria-label="Maximum file size in MB" /></label>
+                <span class="dims-unit">MB</span>
+              </div>
+              <p class="note">Finds the sharpest version under this size. It lowers quality first, then shrinks the resolution only if it has to.</p>
+            </div>
+          </div>
+        </section>
+
         <section class="tab-panel" data-panel="export">
           <h3 class="sec-title tab-head">Export</h3>
           <div class="group">
             <div class="chips scroll" id="formatChips" aria-label="Format"></div>
           </div>
           <div class="group" id="qualityGroup">
-            <h4 class="sec-title">Quality <output id="qualityOut">90%</output></h4>
+            <h4 class="sec-title" id="qualityHead">Quality <output id="qualityOut">90%</output></h4>
             <input class="range" id="qualityRange" type="range" min="40" max="100" step="1" value="90" aria-label="Quality" />
-          </div>
-          <div class="group">
-            <h4 class="sec-title">Size</h4>
-            <div class="chips scroll" id="sizeChips" aria-label="Output size"></div>
           </div>
           <div class="preview checker desk-only" id="previewBox"><canvas id="preview"></canvas></div>
           <dl class="stats">
             <div><dt>Output</dt><dd id="statOut">--</dd></div>
             <div><dt>File size</dt><dd id="statSize">--</dd></div>
+            <div><dt>Quality</dt><dd id="statQ">--</dd></div>
             <div><dt>Source</dt><dd id="statSrc">--</dd></div>
           </dl>
           <p class="kbd-hint desk-only">

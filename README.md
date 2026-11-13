@@ -1,6 +1,6 @@
-# Image Rounder
+# Image Studio
 
-Crop images, round their corners, and save them on any device: phone, tablet, or desktop. It works offline as an installable web app, and nothing ever leaves your device.
+Round corners, crop, resize, and compress images on any device: phone, tablet, or desktop. (Formerly *Image Rounder* + *Image Resizer*, now one app.) It works offline as an installable web app, and nothing ever leaves your device.
 
 ![Desktop](screenshots/desktop.jpg)
 ![Phone](screenshots/phone.jpg)
@@ -12,6 +12,8 @@ Crop images, round their corners, and save them on any device: phone, tablet, or
 - **Style:** border with a color picker, drop shadow, and a fill color for the corners (or keep them transparent).
 - **Crop ratios:** Free, Original, 1:1, 4:5, 3:4, 2:3, 4:3, 3:2, 16:9, 9:16. You can also rotate and flip.
 - **Batch:** open many images at once. One set of style settings applies to all of them, and each image keeps its own crop. **Save all** shares every file at once on phones, or downloads a ZIP on desktop.
+- **Resize by resolution:** Original, 50%, 2×, 720p, 1080p, 2K, 4K, 8K (follows portrait/landscape), or type an exact width or height and the other side follows. Upscaling works.
+- **Resize by file size:** pick 100 KB up to 10 MB (or type any size). It finds the sharpest version under that limit: it lowers quality first, then shrinks the resolution only if it has to. Works for every format except ICO.
 - **Preview** shows the exact final output (tap the eye, or hold Space).
 
 ## Formats
@@ -34,6 +36,7 @@ HEIC and TIFF decoders load only when you open one of those files, so the app st
 ## Performance
 - The editor draws from a downscaled copy, and redraws are batched to the screen's refresh rate.
 - Exports always use the full-resolution original.
+- The file-size search encodes from one rendered frame and steps by the size ratio, so it usually finishes in well under a second.
 - Very large photos are fitted to the device's canvas limit (around 16.7 MP on phones) so they don't crash.
 
 ## Project layout
